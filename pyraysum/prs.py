@@ -33,7 +33,9 @@ import matplotlib.pyplot as plt
 from obspy import Trace, Stream, UTCDateTime
 from obspy.core import AttribDict
 from numpy.fft import fft, ifft, fftshift
+from scipy.fftpack.pseudo_diffs import shift
 from pyraysum import wiggle
+from seispy.decov import decovit
 
 
 class Model(object):
@@ -174,7 +176,6 @@ class Model(object):
 
         return ax
 
-
     def plot_layers(self, zmax=75., ax=None):
         """
         Plot model as horizontal layers and show it
@@ -293,7 +294,7 @@ class StreamList(object):
         self.streams = streams
         self.args = AttribDict(args)
 
-    def calculate_rfs(self):
+    def calculate_rfs(self, gauss=2):
         """
         Method to generate receiver functions from displacement traces.
 
@@ -330,19 +331,21 @@ class StreamList(object):
 
             # Deep copy and re-initialize data to 0.
             rfr = rtr.copy()
-            rfr.data = np.zeros(len(rfr.data))
+            rfr.data = np.zeros(npts)
             rft = ttr.copy()
-            rft.data = np.zeros(len(rft.data))
+            rft.data = np.zeros(npts)
 
             # Fourier transform
             ft_rfr = fft(rtr.data)
             ft_rft = fft(ttr.data)
             ft_ztr = fft(ztr.data)
-
+            
             # Spectral division to calculate receiver functions
             if self.args.wvtype == 'P':
-                rfr.data = fftshift(np.real(ifft(np.divide(ft_rfr, ft_ztr))))
-                rft.data = fftshift(np.real(ifft(np.divide(ft_rft, ft_ztr))))
+                # rfr.data = fftshift(np.real(ifft(np.divide(ft_rfr, ft_ztr))))
+                # rft.data = fftshift(np.real(ifft(np.divide(ft_rft, ft_ztr))))
+                rfr.data, _, _ = decovit(rtr.data, ztr.data, self.args.dt, tshift=self.args.shift, f0=gauss, itmax=100)
+                rft.data, _, _ = decovit(ttr.data, ztr.data, self.args.dt, tshift=self.args.shift, f0=gauss, itmax=100)
             elif self.args.wvtype == 'SV':
                 rfr.data = fftshift(np.real(ifft(np.divide(-ft_ztr, ft_rfr))))
             elif self.args.wvtype == 'SH':

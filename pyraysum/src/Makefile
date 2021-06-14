@@ -1,4 +1,6 @@
 # Makefile for raysum programs. Optimize as much as possible
+FC=gfortran
+
 FFLAGS = -O3 -w
 LDFLAGS = -O3 -w
 
